@@ -72,6 +72,10 @@ for (i in 1:length(vcf_list)) {
   variant_data <- data.table()
   variant_data$position <- vcf_file$POS
   variant_data$af <- as.numeric(str_extract(vcf_file$INFO, "(?<=AF\\=)[^\\;]+"))
+
+  # replace NAs in allel frequency in case a vcf does not conatin that information
+  variant_data$af[is.na(variant_data$af)] <- 1
+
   variant_data$mutation <- paste0(vcf_file$POS, vcf_file$ALT)
   variant_data <- as.data.frame(variant_data)
   variant_data$effect <- str_extract(vcf_file$INFO, "(?<=EFF\\=)[^\\;]+")
@@ -116,7 +120,7 @@ for (i in 1:length(vcf_list)) {
                color="black") +
     labs(y= "variant frequency", 
          x = "genome position")
-  
+
   if (show_position == "nt") {
     plot <- plot +
       geom_text(data = variant_data, 
