@@ -26,7 +26,7 @@ for filepath in $input/*; do
     if [[ $2 ]]; then
         output=$2
     else
-        output="../ouput"
+        output="../output"
     fi
 
         mkdir -p $output/vcf
