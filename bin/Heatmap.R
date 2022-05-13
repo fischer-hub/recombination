@@ -15,12 +15,12 @@ lapply(list.of.packages, require, character.only = TRUE)
 
 # options 
 name_plot <- "Plot_name"               ## name your plot
-frequency <- 0.2                   ## adjust the variant frequency
+frequency <- 0.7                   ## adjust the variant frequency
 display_as <- T                     ## display also AS changes 
 percent <- F                        ## should variants be shown as percent?
 rounded <- F                        ## should rounded values be displayed in the map
-multiplier_width <- 0.5            ## pdf weight multiplier - adjust if needed
-multiplier_height <- 0.6            ## pdf height multiplier - adjust if needed
+multiplier_width <- 0.4            ## pdf weight multiplier - adjust if needed
+multiplier_height <- 2             ## pdf height multiplier - adjust if needed
 color_gene_annotation <- c("Set3")  ## adjust color of gene annotation ("Set2" or "Paired")
 date <- F                           ## do the file names contain a date (format: dd.mm.yyyy) and you want to sort
 number <- T                         ## do the file names contain a number and you want to sort
@@ -33,7 +33,7 @@ number_of_clusters <- 3             ## do you assume a particular amount of clus
 # data preparation
 
 ## import data
-files<-list.files(path = ".",pattern = "*.tabular", recursive = F ,full.names = TRUE)
+files<-list.files(path = "../bin",pattern = "*.tabular", recursive = F ,full.names = TRUE)
 
 ## only in case it contains a date:
 if(date) {
@@ -41,8 +41,8 @@ if(date) {
 }
 
 ## create data.frame for first dataset
-variants<-read.table(files[1], header = T, sep = "\t")
-final<- paste0(variants$POS, variants$ALT, if(display_as){paste0(" ", "(", variants$EFF....AA, ")")})
+variants<-read.table(files[1], header = T, sep = "\t") 
+final<- paste0(variants$POS, variants$ALT, if(display_as){paste0(" ", "(", lapply(strsplit(variants$EFF....AA, ","), function(x) unique(x)), ")")})
 final<- data.frame(cbind(final, variants$AF))
 Sample_number<-path_file(files[1])
 Sample_number = file_path_sans_ext(Sample_number)
@@ -50,18 +50,23 @@ colnames(final) <- c("Mutation", Sample_number)
 
 
 ## loop over all other datasets and join by Mutation
-for(i in 2:length(files)) {
-  variants<-read.table(files[i], header = T, sep = "\t")
-  varpos<- paste0(variants$POS, variants$ALT, if(display_as){paste0(" ", "(", variants$EFF....AA, ")")})
-  varpos<- cbind(varpos, variants$AF)
-  Sample_number<-path_file(files[i])
-  Sample_number = file_path_sans_ext(Sample_number)
-  colnames(varpos) <- c("Mutation", Sample_number)
-  final <- full_join(final, varpos, by="Mutation", copy=T)
+if(length(files) > 1){
+  for(i in 2:length(files)) {
+    variants<-read.table(files[i], header = T, sep = "\t")
+    varpos<- paste0(variants$POS, variants$ALT, if(display_as){paste0(" ", "(", lapply(strsplit(variants$EFF....AA, ","), function(x) unique(x)), ")")})
+    varpos<- cbind(varpos, variants$AF)
+    Sample_number<-path_file(files[i])
+    Sample_number = file_path_sans_ext(Sample_number)
+    colnames(varpos) <- c("Mutation", Sample_number)
+    final <- full_join(final, varpos, by="Mutation", copy=T)
+  }
 }
 
 ## sort
 final<-final[str_order(final$Mutation, numeric = T),]
+
+#remove duplicates
+final <- final[!duplicated(final[ , 1]), ]
 
 ## set row names
 row.names(final)<-final$Mutation
@@ -72,7 +77,7 @@ final<-final[,-1]
 if(number){final<-final[,str_order(colnames(final), numeric = T)]}
 
 ## adjust the variant frequency:
-final[final < frequency] <- NA
+final[final < frequency] <- NA #this deletes the whole df if no allel frequency is given
 
 final <- final[rowSums(is.na(final)) !=ncol(final), ]
 final <- t(final)
@@ -81,7 +86,7 @@ class(final) <- "numeric"
 
 # convert values to percent
 if(percent){final<-final*100}
-
+final <- final + seq_along(final) * .Machine$double.eps
 # show rounded values in pheatmap
 if(rounded){final_rounded <- round(final, 0)} else {final_rounded <- F}
 
@@ -92,11 +97,17 @@ ann_final <- read.table(files[1], header = T, sep = "\t")
 ann_final <- data.frame(paste0(ann_final$POS, ann_final$ALT, if(display_as){paste0(" ", "(", ann_final$EFF....AA, ")")}), ann_final$EFF....EFFECT, ann_final$EFF....GENE)
 colnames(ann_final) <- c("position","effect", "gene")
 
+# summarize duplicate effects and gene names
+ann_final$effect <- lapply(strsplit(ann_final$effect, ","), function(x) unique(x))
+ann_final$gene <- lapply(strsplit(ann_final$gene, ","), function(x) unique(x))
 
 for(i in 2:length(files)) {
   ann <- read.table(files[i], header = T, sep = "\t")
   ann <- data.frame(paste0(ann$POS, ann$ALT, if(display_as){paste0(" ", "(", ann$EFF....AA, ")")}), ann$EFF....EFFECT, ann$EFF....GENE)
   colnames(ann) <- c("position","effect", "gene")
+  # summarize duplicate effects and gene names
+  ann$effect <- lapply(strsplit(ann$effect, ","), function(x) unique(x))
+  ann$gene <- lapply(strsplit(ann$gene, ","), function(x) unique(x))
   ann_final <- rbind(ann_final, ann)
 }
 
@@ -107,14 +118,15 @@ ann_final <- ann_final[ann_final$position %in% colnames(final),]
 ## sort
 ann_final <- ann_final[str_order(ann_final$position, numeric = T),]
 
+# remove duplicate positions
+ann_final <- ann_final[!duplicated(ann_final[ , 1]), ]
+
 ## set rownames
 row.names(ann_final) <- ann_final$position
 ann_final <- ann_final[,-1]
-
 ## rename annotations
 ann_final$effect <- sub("^$", "non-coding", ann_final$effect)
 ann_final$gene <- sub("^$", "NCR", ann_final$gene)
-
 ann_final$effect[ann_final$effect=="NON_SYNONYMOUS_CODING"] <- "non-syn"
 ann_final$effect[ann_final$effect=="SYNONYMOUS_CODING"] <- "syn"
 ann_final$effect[ann_final$effect=="CODON_CHANGE_PLUS_CODON_DELETION"] <- "deletion"
@@ -129,10 +141,10 @@ ann_final$effect[ann_final$effect=="INSERTION"] <- "insertion"
 ann_final$effect[ann_final$effect=="START_LOST"] <- "non-syn"
 ann_final$effect[ann_final$effect=="STOP_LOST+SPLICE_SITE_REGION"] <- "non-syn"
 ann_final$effect[ann_final$effect=="GENE_FUSION"] <- "non-syn"
-
+ann_final$effect <- gsub("[A-Z].*", "other", ann_final$effect)
+ann_final$effect[ann_final$effect=="."] <- "NA"
 
 # automatically determine gaps for the heatmap
-
 gap_vector <- c()
 
 for (i in 2:length(ann_final$gene)){
@@ -145,7 +157,6 @@ for (i in 2:length(ann_final$gene)){
 
 ## colormangment heatmap
 my_colors <- colorRampPalette(c("grey93","brown","black"))
-
 ## colormanagement annotations (genes)
 count <- length(unique(ann_final$gene))
 gene_color <- c(brewer.pal(color_gene_annotation, n=count))
@@ -171,15 +182,20 @@ if(c("frame shift") %in% ann_final$effect){
   colors <- c(colors, "black")
 }
 if(c("stop gained") %in% ann_final$effect){
-  colors <- c(colors, "grey")
+  colors <- c(colors, "purple")
 }
 if(c("insertion") %in% ann_final$effect){
   colors <- c(colors, "blue")
 }
+if(c("other") %in% ann_final$effect){
+  colors <- c(colors, "brown")
+}
+if(c("NA") %in% ann_final$effect){
+  colors <- c(colors, "grey")
+}
 
-
-all_colors<-data.frame(color=c("white", "green", "orange", "red", "black", "grey", "blue"), 
-                       name = c("non-coding", "syn", "non-syn", "deletion", "frame shift", "stop gained", "insertion"))
+all_colors<-data.frame(color=c("white", "green", "orange", "red", "black", "purple", "blue", "brown", "grey"), 
+                       name = c("non-coding", "syn", "non-syn", "deletion", "frame shift", "stop gained", "insertion", "other", "NA"))
 
 subset_colors<-subset(all_colors, color %in% colors)
 
@@ -189,12 +205,10 @@ names(effect_color) = subset_colors$name
 color_list <- list(gene_color = gene_color, effect_color = effect_color)
 names(color_list) <- c("gene", "effect")
 
-
 # visualize heatmap
-
 ## The pdf scales with the number of variants and samples
 pdf(paste0(name_plot, "(", frequency, ")", ".pdf"), width = multiplier_width*ncol(final), height = multiplier_height*nrow(final))
-
+write.csv(final, "final.csv")
 pheatmap(final, 
          color = my_colors(100),
          cellwidth = 20,

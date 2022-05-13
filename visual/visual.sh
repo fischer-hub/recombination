@@ -12,6 +12,11 @@
 
 input=${1%/} # Remove possible trailing /
 
+if [[ $(basename $(pwd)) != "visual" ]]; then
+    echo "wrong dir"
+    cd visual/
+fi
+
 for filepath in $input/*; do
 
     filename=${filepath##*/}
@@ -32,8 +37,8 @@ for filepath in $input/*; do
         # script expects vcf files to be in same dir
         cp $filepath ../bin
         echo "running Genome_variant_vis.R .."
-        Rscript ../bin/Genome_variant_vis.R
-        rm ../bin/*vcf
+        Rscript ../bin/Genome_variant_vis.R $filename > /dev/null 2>&1;
+        #rm ../bin/*vcf
         mv *.pdf $output/figures
     # assume input is a fasta file
     elif [ "${filename##*.}" = "gff" ]; then
@@ -66,30 +71,49 @@ for filepath in $input/*; do
         # using eight cpus (the database file will be created if it does not exist)
         python3 covsonar/sonar.py add -f $filepath --db mydb --cpus 8
         echo "python3 covsonar/sonar.py add -f $filepath --db mydb --cpus 8"
-        # get vcf file from covsonar db
-        python3 covsonar/sonar.py var2vcf --db mydb -o $output/vcf/merge.vcf --cpus 8
-        rm -f mydb
-        gunzip $output/vcf/merge.vcf.gz
-        mv $output/vcf/merge.vcf $output/vcf/$basename.vcf
-
-        echo "running Genome_variant_vis.R .."
-        cp $output/vcf/$basename.vcf ../bin
-        Rscript ../bin/Genome_variant_vis.R
-        rm ../bin/*vcf
-        mv *.pdf $output/figures
 
     fi
-    echo "running snpEff.."
-    [ ! -f $output/vcf/$basename.vcf ] && cp $filepath $output/vcf/$basename.vcf
-    snpEff ann NC_045512.2 $output/vcf/$basename.vcf 1> $output/vcf/${basename}_snpeff.tabular #SARS-cov2 isolate Wuhan-Hu-1, complete genome as ref
-    [ -f $output/vcf/$basename.vcf ] && rm $output/vcf/$basename.vcf
-
-    echo "running Heatmap.R .."
-    cp $output/vcf/${basename}_snpeff.tabular ../bin
-    Rscript ../bin/Heatmap.R
-    rm ../bin/*.tabular
-    mv *.pdf $output/figures
 
 done
+
+# get vcf file from covsonar db
+python3 covsonar/sonar.py var2vcf --db mydb -o $output/vcf/merge.vcf --cpus 8
+gunzip -f $output/vcf/merge.vcf.gz
+# set float seperator to .
+export LC_NUMERIC="en_US.UTF-8";
+
+# calculate something like the allel frequency from AC/AN bc covsonar doesn't do this
+awk '/^#/{print $0}!/^#/{split($8, an1, "AN="); split(an1[2], an2, ";"); split($8,info,"AC="); split(info[2],ac,",");printf $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6 "\t" $7 "\t"; printf $8";AF="; for(c in ac){printf c/an2[1] ","}; printf "\t"; for (i=9; i<NF; i++) printf $i "\t"; print $NF}' $output/vcf/merge.vcf | awk '/^#/{print $0}!/^#/{printf $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6 "\t" $7 "\t";printf substr($8,1,length($8)-1) "\t";for (i=9; i<NF; i++) printf $i "\t"; print $NF}' > $output/vcf/merge_AF.vcf
+mv $output/vcf/merge_AF.vcf $output/vcf/merge.vcf
+
+echo "running Genome_variant_vis.R .."
+cp $output/vcf/merge.vcf ../bin
+Rscript ../bin/Genome_variant_vis.R merge.vcf #> /dev/null 2>&1;
+#rm ../bin/*vcf
+mv *.pdf $output/figures
+
+for vcf in ../bin/*.vcf; do
+    filename=${vcf##*/}
+    basename=${filename%.*}
+
+    if command -v snpEff &> /dev/null; then
+        echo "running snpEff.. ${vcf}"
+        [ ! -f $output/vcf/${filename} ] && cp $vcf $output/vcf/${filename}
+        snpEff ann -classic -ud 0 NC_045512.2 $output/vcf/${filename} 1> $output/vcf/${basename}_snpeff.vcf #SARS-cov2 isolate Wuhan-Hu-1, complete genome as ref, -ud 0 ignore up and downstream effects
+        echo "running SnpSift"
+        SnpSift extractFields -s "," -e "." $output/vcf/${basename}_snpeff.vcf "CHROM"    "POS" "REF"	"ALT"	"FILTER"	"DP"	"AF"	"EFF[*].EFFECT"	"EFF[*].IMPACT"	"EFF[*].FUNCLASS"   "EFF[*].AA" "EFF[*].GENE" > $output/vcf/${basename}.tabular
+        cp $output/vcf/${basename}.tabular ../bin
+    else
+        echo "couldn't annotate VCF with snpEff because it is not available"
+    fi
+done
+
+echo "running Heatmap.R .."
+#Rscript ../bin/Heatmap.R #> /dev/null 2>&1;
+Rscript ../bin/Heatmap.R
+#rm ../bin/*.tabular
+mv *.pdf $output/figures
+
+rm -f mydb
 # conda env is deactivated when this sub-shell dies
-#conda deactivate
+# conda deactivate

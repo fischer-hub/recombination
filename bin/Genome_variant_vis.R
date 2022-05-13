@@ -7,6 +7,10 @@ library(ggforce)
 library(fs)
 library(tools)
 
+
+#!/usr/bin/env Rscript
+args = commandArgs(trailingOnly=TRUE)
+
 ## options
 zoom <- c("S") #define gene name, range (start, end) or leave empty
 show_position <- c("nt") ## nt, aa, or leave empty
@@ -61,14 +65,13 @@ if (is.character(zoom) && length(zoom) >=1) {
 }
 
 ## load vcf file and create variant data
-vcf_list <-list.files(path = "../bin",pattern = "*.vcf", recursive = F ,full.names = TRUE)
+vcf_list <-list.files(path = "../bin",pattern = args[1], recursive = F ,full.names = TRUE)
 
 for (i in 1:length(vcf_list)) {
   Sample_number <- path_file(vcf_list[i])
   Sample_number = file_path_sans_ext(Sample_number)
   
-  
-  vcf_file <- fread(vcf_list[i])
+  vcf_file <- fread(paste0("grep -v '^##' ",vcf_list[i]), sep = "\t")
   variant_data <- data.table()
   variant_data$position <- vcf_file$POS
   variant_data$af <- as.numeric(str_extract(vcf_file$INFO, "(?<=AF\\=)[^\\;]+"))
