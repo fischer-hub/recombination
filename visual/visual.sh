@@ -25,12 +25,18 @@ if [ ! -z ${MULTI_FASTA+x} ]; then
     # split multi fasta file
     awk -v var="$seq_date" -F "|" '/^>/ {close(F) ; F = "temporary/"substr($1,2)".fasta"} {print >> F}' $MULTI_FASTA
     
-    for file in temporary/*; do
-        tmpfilename=${file##*/}
-        tmpbasename=${tmpfilename%.*}
-        seq_date=$(grep ${tmpbasename} ${METADATA} | awk '{print $6}')
-        mv $file temporary/${tmpbasename}_${seq_date}.fasta
-    done;
+    # add date from metadata sheet to filename if provided
+    if [ ! -z ${METADATA+x} ]; then
+        for file in temporary/*; do
+            tmpfilename=${file##*/}
+            tmpbasename=${tmpfilename%.*}
+            seq_date=$(grep ${tmpbasename} ${METADATA} | awk '{print $6}')
+            mv $file temporary/${tmpbasename}_${seq_date}.fasta
+        done;
+    else
+            mv $file temporary/${tmpbasename}.fasta
+    fi
+
     input="temporary"
 fi
 
