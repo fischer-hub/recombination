@@ -21,4 +21,4 @@ NEW:
 - Added support for multifasta files, eg.: `~/recombination/visual$ ./visual.sh -m my_multi_fasta_file.fasta`
 - Added support for metadata sheets (tsv), e.g.: `~/recombination/visual$ ./visual.sh -m my_multi_fasta_file.fasta -t my_metadata_file.tsv`. If provided the heatmap will sort sequences by the date  associated with them in the metadata file.
 - The script now makes heatmaps for all sequences merged into one VCF, so you get the different allel frequencies, but also a heatmap with all sequences seperately where allel frequency is either 1 or 0.
-- Genomemap plots are currently not working.
+- Genomemap plots are currently not working. Please use the code from branch `old` to generate these plots. NOTE: Everything listed under `NEW` is not available there.
