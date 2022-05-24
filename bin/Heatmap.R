@@ -12,6 +12,8 @@ if(length(new.packages)) install.packages(new.packages)
 
 lapply(list.of.packages, require, character.only = TRUE)
 
+args = commandArgs(trailingOnly=TRUE)
+
 
 # options 
 name_plot <- "Plot_name"               ## name your plot
@@ -19,14 +21,15 @@ frequency <- 0.7                   ## adjust the variant frequency
 display_as <- T                     ## display also AS changes 
 percent <- F                        ## should variants be shown as percent?
 rounded <- F                        ## should rounded values be displayed in the map
-multiplier_width <- 0.4            ## pdf weight multiplier - adjust if needed
-multiplier_height <- 2             ## pdf height multiplier - adjust if needed
+multiplier_width <- 0.35            ## pdf weight multiplier - adjust if needed
+multiplier_height <- 0.3             ## pdf height multiplier - adjust if needed
 color_gene_annotation <- c("Set3")  ## adjust color of gene annotation ("Set2" or "Paired")
-date <- F                           ## do the file names contain a date (format: dd.mm.yyyy) and you want to sort
-number <- T                         ## do the file names contain a number and you want to sort
+date <- args[1]                     ## do the file names contain a date (format: dd.mm.yyyy) and you want to sort
+number <- F                         ## do the file names contain a number and you want to sort
 clustering <- F                     ## should the samples be clustered?
 clustering_method <- "ward.D2"      ## what clustering method -> see ?hclust for further information
 number_of_clusters <- 3             ## do you assume a particular amount of clusters?
+percentage_NA <- 0.8
 
 
 
@@ -37,7 +40,7 @@ files<-list.files(path = "../bin",pattern = "*.tabular", recursive = F ,full.nam
 
 ## only in case it contains a date:
 if(date) {
-  files<-files[order(as.Date(regmatches(files, regexpr("\\d{2}[[:punct:]]\\d{2}[[:punct:]]\\d{4}", files)), format="%d.%m.%y"))]
+  files<-files[order(as.Date(regmatches(files, regexpr("\\d{4}[[:punct:]]\\d{2}[[:punct:]]\\d{2}", files))))]
 }
 
 ## create data.frame for first dataset
@@ -79,10 +82,15 @@ if(number){final<-final[,str_order(colnames(final), numeric = T)]}
 ## adjust the variant frequency:
 final[final < frequency] <- NA #this deletes the whole df if no allel frequency is given
 
-final <- final[rowSums(is.na(final)) !=ncol(final), ]
+## apply percentage NA column filter
+final <- final[rowMeans(is.na(final)) < percentage_NA, ]
+
+#final <- final[rowSums(is.na(final)) !=ncol(final), ]
 final <- t(final)
 final[is.na(final)] <- 0
 class(final) <- "numeric"
+
+print(ncol(final))
 
 # convert values to percent
 if(percent){final<-final*100}
@@ -146,7 +154,6 @@ ann_final$effect[ann_final$effect=="."] <- "NA"
 
 # automatically determine gaps for the heatmap
 gap_vector <- c()
-
 for (i in 2:length(ann_final$gene)){
   if (ann_final$gene[i]!=ann_final$gene[i-1]){
     gap_vector <- c(gap_vector, i-1)
@@ -207,7 +214,7 @@ names(color_list) <- c("gene", "effect")
 
 # visualize heatmap
 ## The pdf scales with the number of variants and samples
-pdf(paste0(name_plot, "(", frequency, ")", ".pdf"), width = multiplier_width*ncol(final), height = multiplier_height*nrow(final))
+pdf(paste0(name_plot, "(", percentage_NA, ")", ".pdf"), width = multiplier_width*ncol(final), height = multiplier_height*nrow(final))
 write.csv(final, "final.csv")
 pheatmap(final, 
          color = my_colors(100),
