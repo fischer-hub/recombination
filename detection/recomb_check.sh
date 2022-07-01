@@ -6,6 +6,8 @@
 # 2) running sc2rf on the sequence alignment
 # 3) filtering the sc2rf output for possible candidates
 # 4) subsampling these candidate sequences from the original fasta file
+# 5) checking whether sequences among these candidates are already identified
+# as recombs by pangolin
 #
 # To run the script just start it like a normal bash script, all dependencies
 # should be installed automatically. If this doesn't work please create a
