@@ -21,8 +21,8 @@ if [ -n "$1" ]; then
     in=$1
     echo "input (arg 1): $in"
 else
-    echo "input: $in"
     in=$input
+    echo "input: $in"
 fi
 out="output_$(date +%F)"
 
