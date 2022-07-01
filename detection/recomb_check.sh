@@ -55,7 +55,7 @@ if ! [ -d "sc2rf" ]; then
 fi
 
 echo 'running nextalign ..'
-nextalign --sequences day.fasta --reference  sc2rf/reference.fasta
+nextalign run --input-ref sc2rf/reference.fasta --output-fasta day.aligned.fasta day.fasta
 
 # run sequences through sc2rf
 echo 'running sc2rf ..'
@@ -124,6 +124,6 @@ mv knownSeqs.csv $out
 mv unknownSeqs.ids $out
 mv unknowSeqs.fasta $out
 mv unknowSeqs.csv $out
-rm day.errors.csv day.fasta day.aligned.fasta day.insertions.csv lineage_report.csv
+rm day.fasta day.aligned.fasta #lineage_report.csv
 
 echo "done!"

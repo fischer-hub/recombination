@@ -5,8 +5,8 @@ channels:
   - defaults
 dependencies:
   - gawk
-  - nextalign
-  - seqkit
+  - nextalign==2.1.0
+  - seqkit==2.2.0
   - python>=3.6
   - pangolin>=4.0.6
   - pip
