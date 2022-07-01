@@ -1,0 +1,16 @@
+name: recomb_check
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - gawk
+  - nextalign
+  - seqkit
+  - python>=3.6
+  - pangolin>=4.0.6
+  - pip
+  - pip:
+    - termcolor>=1.1.0
+    - requests>=2.27.1
+    - tqdm>=4.58.0
