@@ -69,63 +69,63 @@ python3 sc2rf.py --csvfile ../day.csv --parents 1-35 --breakpoints 1-2 \
 cd ..
 
 # filter out sequences that have any other donor lineage except Omicron and Delta and extract their IDs
-awk -F ',' '$2~/Delta|Omicron/ && $3~/Delta|Omicron/{if($4 <= 3 && $5 >=1 && $5 <= 2) print $1}' day.csv > wantedSeqs.ids
+awk -F ',' '$2~/Delta|Omicron/ && $3~/Delta|Omicron/{if($4 <= 3 && $5 >=1 && $5 <= 2) print $1}' day.csv > potenitalRecombinants.ids
 
 # subsample all possible candidates from original fasta file
-echo "running seqkit (wantedSeqs) .."
-seqkit grep -f wantedSeqs.ids day.fasta > wantedSeqs.fasta 2> /dev/null
+echo "running seqkit (potenitalRecombinants) .."
+seqkit grep -f potenitalRecombinants.ids day.fasta > potenitalRecombinants.fasta 2> /dev/null
 
 # find recomb candidates that already have been identified by pangolin
 echo "running pangolin .."
-pangolin wantedSeqs.fasta --skip-scorpio -t 4 > /dev/null 2>&1;
-awk -F ',' '$2~/X/{print $1}' lineage_report.csv > knownSeqs.ids
+pangolin potenitalRecombinants.fasta --skip-scorpio -t 4 > /dev/null 2>&1;
+awk -F ',' '$2~/X/{print $1}' lineage_report.csv > pangolinDetectedRecombinants.ids
 
 
 # filter day.csv for known recomb candidate seqs
 echo "filtering day.csv for known candidates .."
-head -n 1 day.csv > knownSeqs.csv
+head -n 1 day.csv > pangolinDetectedRecombinants.csv
 while IFS="" read -r p || [ -n "$p" ]
 do
-   grep "$p" day.csv >> knownSeqs.csv
-done < knownSeqs.ids
+   grep "$p" day.csv >> pangolinDetectedRecombinants.csv
+done < pangolinDetectedRecombinants.ids
 
 # filter day.csv for recomb candidate seqs
 echo "filtering day.csv for new candidates .."
-head -n 1 day.csv > wantedSeqs.csv
+head -n 1 day.csv > potenitalRecombinants.csv
 while IFS="" read -r p || [ -n "$p" ]
 do
-   grep "$p" day.csv >> wantedSeqs.csv
-done < wantedSeqs.ids
+   grep "$p" day.csv >> potenitalRecombinants.csv
+done < potenitalRecombinants.ids
 
 # filter ids for unidentified ids
 echo "filtering all candidates for unidentified candidates only .."
-grep -v -f knownSeqs.ids wantedSeqs.ids >> unknownSeqs.ids
-grep -v -f knownSeqs.ids day.csv >> unknowSeqs.csv
+grep -v -f pangolinDetectedRecombinants.ids potenitalRecombinants.ids >> undetectedRecombinants.ids
+grep -v -f pangolinDetectedRecombinants.ids day.csv >> undetectedRecombinants.csv
 
 #subsample the initial fasta file for those sequences only
-echo "running seqkit (knownSeqs) .."
-seqkit grep -f knownSeqs.ids day.fasta > knownSeqs.fasta 2> /dev/null
+echo "running seqkit (pangolinDetectedRecombinants) .."
+seqkit grep -f pangolinDetectedRecombinants.ids day.fasta > pangolinDetectedRecombinants.fasta 2> /dev/null
 
-echo "running seqkit (unknowSeqs) .."
-seqkit grep -v -f knownSeqs.ids wantedSeqs.fasta > unknowSeqs.fasta 2> /dev/null
+echo "running seqkit (undetectedRecombinants) .."
+seqkit grep -v -f pangolinDetectedRecombinants.ids potenitalRecombinants.fasta > undetectedRecombinants.fasta 2> /dev/null
 
-echo -e "\nfound $(cat wantedSeqs.ids | wc -l) total recombinant candidates"
-echo "of which $(cat knownSeqs.ids | wc -l) have already been indentified by pangolin"
-echo "and $(cat unknownSeqs.ids | wc -l) are unidentified"
+# get lines from pangolin lineage report for pangolinDetectedRecombinants
+cat lineage_report.csv | head -n 1 > lineage_report_tmp
+grep -f pangolinDetectedRecombinants.ids lineage_report.csv >> lineage_report_tmp
+
+
+echo -e "\nfound $(cat potenitalRecombinants.ids | wc -l) total recombinant candidates"
+echo "of which $(cat pangolinDetectedRecombinants.ids | wc -l) have already been indentified by pangolin"
+echo "and $(cat undetectedRecombinants.ids | wc -l) are unidentified"
 
 # clean up
 echo -e "\ncleaning up .."
 mkdir -p $out
+rm day.fasta day.aligned.fasta lineage_report.csv
+mv lineage_report_tmp lineage_report_filtered.csv
 mv day.csv $out
-mv wantedSeqs.ids $out
-mv wantedSeqs.fasta $out
-mv wantedSeqs.csv $out
-mv knownSeqs.ids $out
-mv knownSeqs.fasta $out
-mv knownSeqs.csv $out
-mv unknownSeqs.ids $out
-mv unknowSeqs.fasta $out
-mv unknowSeqs.csv $out
-rm day.fasta day.aligned.fasta #lineage_report.csv
+mv *.ids $out
+mv *.fasta $out
+mv *.csv $out
 
 echo "done!"
