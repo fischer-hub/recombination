@@ -109,9 +109,12 @@ seqkit grep -f pangolinDetectedRecombinants.ids day.fasta > pangolinDetectedReco
 echo "running seqkit (undetectedRecombinants) .."
 seqkit grep -v -f pangolinDetectedRecombinants.ids potenitalRecombinants.fasta > undetectedRecombinants.fasta 2> /dev/null
 
-# get lines from pangolin lineage report for pangolinDetectedRecombinants
-cat lineage_report.csv | head -n 1 > lineage_report_tmp
-grep -f pangolinDetectedRecombinants.ids lineage_report.csv >> lineage_report_tmp
+# get lines from pangolin lineage report for pangolinDetectedRecombinants and undetectedRecombinants
+cat lineage_report.csv | head -n 1 > lineage_report_detected_tmp
+grep -f pangolinDetectedRecombinants.ids lineage_report.csv >> lineage_report_detected_tmp
+
+cat lineage_report.csv | head -n 1 > lineage_report_undetected_tmp
+grep -f undetectedRecombinants.ids lineage_report.csv >> lineage_report_undetected_tmp
 
 
 echo -e "\nfound $(cat potenitalRecombinants.ids | wc -l) total recombinant candidates"
@@ -122,7 +125,8 @@ echo "and $(cat undetectedRecombinants.ids | wc -l) are unidentified"
 echo -e "\ncleaning up .."
 mkdir -p $out
 rm day.fasta day.aligned.fasta lineage_report.csv
-mv lineage_report_tmp lineage_report_filtered.csv
+mv lineage_report_detected_tmp lineage_report_pangolinDetectedRecombinants.csv
+mv lineage_report_undetected_tmp lineage_report_undetectedRecombinants.csv
 mv day.csv $out
 mv *.ids $out
 mv *.fasta $out
